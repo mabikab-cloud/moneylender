@@ -33,7 +33,7 @@ export default async function DashboardPage() {
   });
 
   const active = rows.filter((r) => r.loan.status === "active");
-  const closed = rows.filter((r) => r.loan.status === "closed");
+  const inactive = rows.filter((r) => r.loan.status !== "active");
   const totalOutstanding = active.reduce((sum, r) => sum + r.balance, 0);
 
   return (
@@ -82,14 +82,17 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {closed.length > 0 ? (
+      {inactive.length > 0 ? (
         <div className="mt-8">
-          <h2 className="text-sm font-medium text-neutral-500">Closed loans</h2>
+          <h2 className="text-sm font-medium text-neutral-500">Closed &amp; cancelled loans</h2>
           <ul className="mt-2 space-y-1 text-sm text-neutral-500">
-            {closed.map(({ loan }) => (
+            {inactive.map(({ loan }) => (
               <li key={loan.id}>
                 <Link href={`/loans/${loan.id}`} className="hover:underline">
-                  {loan.borrowers?.name ?? "Unknown"} — {formatCurrency(loan.principal)} on {formatDate(loan.start_date)}
+                  {loan.borrowers?.name ?? "Unknown"} — {formatCurrency(loan.principal)} on {formatDate(loan.start_date)}{" "}
+                  <span className={loan.status === "cancelled" ? "text-red-500" : "text-neutral-400"}>
+                    ({loan.status})
+                  </span>
                 </Link>
               </li>
             ))}

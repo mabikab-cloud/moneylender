@@ -49,10 +49,16 @@ function sumPaymentsInRange(
 }
 
 /**
- * Computes a loan's outstanding balance as of `asOfDate`, compounding
- * `ratePercent` monthly on whatever balance remains unpaid at each month
- * boundary (so a skipped month accrues interest on the prior month's
- * interest too, not just the original principal).
+ * Computes a loan's outstanding balance as of `asOfDate`.
+ *
+ * Interest for a monthly period is charged the instant that period
+ * begins — including the very first period, i.e. the day the money is
+ * handed over — not prorated by how quickly it's repaid. So a loan repaid
+ * in full an hour after disbursement still owes that first month's
+ * interest, and a borrower who lets a period roll over without paying
+ * owes the next period's interest on top of the unpaid balance (interest
+ * on interest), because that unpaid interest was already folded into the
+ * balance the new period's charge is computed from.
  *
  * Periods are anchored to the original `startDate` (via date-fns
  * `addMonths(startDate, n)`) rather than chained off the previous period's
@@ -84,48 +90,33 @@ export function calculateLoanBalance(
 
   while (n < MAX_PERIODS) {
     const periodStart = addMonths(start, n);
+    if (isAfter(periodStart, asOf)) break;
+
     const periodEnd = addMonths(start, n + 1);
+    const periodComplete = !isAfter(periodEnd, asOf);
+    const windowEnd = periodComplete ? periodEnd : asOf;
 
-    if (isAfter(periodEnd, asOf)) {
-      // Current, incomplete period: payments already made reduce the
-      // balance immediately, but no interest accrues until month-end.
-      if (isAfter(asOf, periodStart)) {
-        const paymentsInPeriod = sumPaymentsInRange(sortedPayments, periodStart, asOf, true);
-        if (paymentsInPeriod > 0) {
-          const opening = balance;
-          balance = round2(Math.max(0, balance - paymentsInPeriod));
-          schedule.push({
-            periodStart,
-            periodEnd: asOf,
-            openingBalance: opening,
-            interestAdded: 0,
-            paymentsApplied: paymentsInPeriod,
-            closingBalance: balance,
-          });
-        }
-      }
-      break;
-    }
-
-    // Completed period: interest accrues on the opening balance, then
-    // payments made within the period are subtracted.
+    // This period's interest is charged now, the moment it begins.
     const opening = balance;
     const interestAdded = opening > 0 ? round2(opening * rate) : 0;
-    const afterInterest = round2(opening + interestAdded);
-    const paymentsInPeriod = sumPaymentsInRange(sortedPayments, periodStart, periodEnd, false);
-    balance = round2(Math.max(0, afterInterest - paymentsInPeriod));
+    let closing = round2(opening + interestAdded);
+
+    const paymentsInPeriod = sumPaymentsInRange(sortedPayments, periodStart, windowEnd, !periodComplete);
+    closing = round2(Math.max(0, closing - paymentsInPeriod));
 
     schedule.push({
       periodStart,
-      periodEnd,
+      periodEnd: windowEnd,
       openingBalance: opening,
       interestAdded,
       paymentsApplied: paymentsInPeriod,
-      closingBalance: balance,
+      closingBalance: closing,
     });
 
+    balance = closing;
     n += 1;
 
+    if (!periodComplete) break;
     if (balance <= 0) break;
   }
 

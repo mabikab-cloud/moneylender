@@ -13,7 +13,7 @@ export interface Loan {
   principal: number;
   interest_rate: number;
   start_date: string;
-  status: "active" | "closed";
+  status: "active" | "closed" | "cancelled";
   notes: string | null;
   created_at: string;
 }

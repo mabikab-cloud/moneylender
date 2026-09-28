@@ -65,8 +65,12 @@ export default async function BorrowerDetailPage({
                   <div>
                     <p className="text-sm font-medium text-neutral-900">
                       {formatCurrency(loan.principal)} principal
-                      {loan.status === "closed" ? (
-                        <span className="ml-2 text-xs text-neutral-400">(closed)</span>
+                      {loan.status !== "active" ? (
+                        <span
+                          className={`ml-2 text-xs ${loan.status === "cancelled" ? "text-red-500" : "text-neutral-400"}`}
+                        >
+                          ({loan.status})
+                        </span>
                       ) : null}
                     </p>
                     <p className="text-xs text-neutral-500">Started {formatDate(loan.start_date)}</p>

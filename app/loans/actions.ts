@@ -68,3 +68,21 @@ export async function reopenLoan(loanId: string) {
   revalidatePath(`/loans/${loanId}`);
   revalidatePath("/");
 }
+
+export async function cancelLoan(loanId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("loans").update({ status: "cancelled" }).eq("id", loanId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/loans/${loanId}`);
+  revalidatePath("/");
+}
+
+export async function deletePayment(paymentId: string, loanId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("payments").delete().eq("id", paymentId);
+  if (error) throw new Error(error.message);
+
+  revalidatePath(`/loans/${loanId}`);
+  revalidatePath("/");
+}

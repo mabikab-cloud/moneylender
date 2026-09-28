@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { calculateLoanBalance } from "@/lib/interest";
 import { formatCurrency, formatDate } from "@/lib/format";
 import type { LoanPayment } from "@/lib/types";
-import { closeLoan, recordPayment, reopenLoan } from "../actions";
+import ConfirmForm from "@/components/ConfirmForm";
+import { cancelLoan, closeLoan, deletePayment, recordPayment, reopenLoan } from "../actions";
 
 export default async function LoanDetailPage({
   params,
@@ -40,6 +41,7 @@ export default async function LoanDetailPage({
   const recordPaymentForLoan = recordPayment.bind(null, loan.id);
   const closeThisLoan = closeLoan.bind(null, loan.id);
   const reopenThisLoan = reopenLoan.bind(null, loan.id);
+  const cancelThisLoan = cancelLoan.bind(null, loan.id);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
@@ -60,11 +62,21 @@ export default async function LoanDetailPage({
 
       <div className="mt-4 flex gap-2">
         {loan.status === "active" ? (
-          <form action={closeThisLoan}>
-            <button type="submit" className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
-              Mark closed
-            </button>
-          </form>
+          <>
+            <form action={closeThisLoan}>
+              <button type="submit" className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
+                Mark closed
+              </button>
+            </form>
+            <ConfirmForm
+              action={cancelThisLoan}
+              confirmMessage="Cancel this loan? It will be removed from your active totals, but stays on record and can be reopened later."
+            >
+              <button type="submit" className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50">
+                Cancel loan
+              </button>
+            </ConfirmForm>
+          </>
         ) : (
           <form action={reopenThisLoan}>
             <button type="submit" className="rounded-md border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
@@ -108,7 +120,7 @@ export default async function LoanDetailPage({
                 </tbody>
               </table>
             ) : (
-              <p className="px-3 py-4 text-xs text-neutral-500">No full month has elapsed yet.</p>
+              <p className="px-3 py-4 text-xs text-neutral-500">This loan hasn&apos;t started yet.</p>
             )}
           </div>
 
@@ -117,12 +129,22 @@ export default async function LoanDetailPage({
             {payments && payments.length > 0 ? (
               <ul className="divide-y divide-neutral-100">
                 {payments.map((p) => (
-                  <li key={p.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                  <li key={p.id} className="flex items-center justify-between gap-3 px-3 py-2 text-sm">
                     <div>
                       <p className="text-neutral-900">{formatDate(p.paid_on)}</p>
                       {p.note ? <p className="text-xs text-neutral-500">{p.note}</p> : null}
                     </div>
-                    <p className="font-medium text-neutral-900">{formatCurrency(p.amount)}</p>
+                    <div className="flex items-center gap-3">
+                      <p className="font-medium text-neutral-900">{formatCurrency(p.amount)}</p>
+                      <ConfirmForm
+                        action={deletePayment.bind(null, p.id, loan.id)}
+                        confirmMessage={`Reverse this ${formatCurrency(p.amount)} payment from ${formatDate(p.paid_on)}? This can't be undone.`}
+                      >
+                        <button type="submit" className="text-xs text-red-600 hover:underline">
+                          Remove
+                        </button>
+                      </ConfirmForm>
+                    </div>
                   </li>
                 ))}
               </ul>
