@@ -1,69 +1,101 @@
-import Image from "next/image";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/server";
+import { calculateLoanBalance } from "@/lib/interest";
+import { formatCurrency, formatDate } from "@/lib/format";
+import type { Loan, LoanPayment } from "@/lib/types";
 
-export default function Home() {
+type LoanRow = Loan & {
+  borrowers: { name: string } | null;
+  payments: Pick<LoanPayment, "amount" | "paid_on">[];
+};
+
+export default async function DashboardPage() {
+  const supabase = await createClient();
+  const { data: loans, error } = await supabase
+    .from("loans")
+    .select("*, borrowers(name), payments(amount, paid_on)")
+    .order("start_date", { ascending: false })
+    .returns<LoanRow[]>();
+
+  if (error) {
+    return <p className="mx-auto max-w-4xl px-4 py-8 text-sm text-red-600">{error.message}</p>;
+  }
+
+  const rows = (loans ?? []).map((loan) => {
+    const result = calculateLoanBalance(
+      loan.principal,
+      loan.interest_rate,
+      loan.start_date,
+      loan.payments.map((p) => ({ amount: p.amount, paidOn: p.paid_on })),
+      new Date()
+    );
+    return { loan, balance: result.balance, monthsElapsed: result.monthsElapsed };
+  });
+
+  const active = rows.filter((r) => r.loan.status === "active");
+  const closed = rows.filter((r) => r.loan.status === "closed");
+  const totalOutstanding = active.reduce((sum, r) => sum + r.balance, 0);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="mx-auto max-w-4xl px-4 py-8">
+      <div className="flex items-baseline justify-between">
+        <h1 className="text-lg font-semibold text-neutral-900">Dashboard</h1>
+        <p className="text-sm text-neutral-500">
+          Total outstanding: <span className="font-semibold text-neutral-900">{formatCurrency(totalOutstanding)}</span>
+        </p>
+      </div>
+
+      {active.length === 0 ? (
+        <p className="mt-6 text-sm text-neutral-500">
+          No active loans yet. <Link href="/loans/new" className="underline">Record your first loan</Link>.
+        </p>
+      ) : (
+        <div className="mt-6 overflow-hidden rounded-lg border border-neutral-200 bg-white">
+          <table className="w-full text-sm">
+            <thead className="border-b border-neutral-200 bg-neutral-50 text-left text-neutral-500">
+              <tr>
+                <th className="px-4 py-2 font-medium">Borrower</th>
+                <th className="px-4 py-2 font-medium">Principal</th>
+                <th className="px-4 py-2 font-medium">Start date</th>
+                <th className="px-4 py-2 font-medium">Months</th>
+                <th className="px-4 py-2 text-right font-medium">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {active.map(({ loan, balance, monthsElapsed }) => (
+                <tr key={loan.id} className="border-b border-neutral-100 last:border-0 hover:bg-neutral-50">
+                  <td className="px-4 py-2">
+                    <Link href={`/loans/${loan.id}`} className="font-medium text-neutral-900 hover:underline">
+                      {loan.borrowers?.name ?? "Unknown"}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-neutral-600">{formatCurrency(loan.principal)}</td>
+                  <td className="px-4 py-2 text-neutral-600">{formatDate(loan.start_date)}</td>
+                  <td className="px-4 py-2 text-neutral-600">{monthsElapsed}</td>
+                  <td className="px-4 py-2 text-right font-semibold text-neutral-900">
+                    {formatCurrency(balance)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      )}
+
+      {closed.length > 0 ? (
+        <div className="mt-8">
+          <h2 className="text-sm font-medium text-neutral-500">Closed loans</h2>
+          <ul className="mt-2 space-y-1 text-sm text-neutral-500">
+            {closed.map(({ loan }) => (
+              <li key={loan.id}>
+                <Link href={`/loans/${loan.id}`} className="hover:underline">
+                  {loan.borrowers?.name ?? "Unknown"} — {formatCurrency(loan.principal)} on {formatDate(loan.start_date)}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
-      </main>
+      ) : null}
     </div>
   );
 }
