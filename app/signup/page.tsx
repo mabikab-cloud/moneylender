@@ -1,27 +1,24 @@
 import Link from "next/link";
-import { signIn } from "./actions";
+import { signUp } from "./actions";
 
-export default async function LoginPage({
+export default async function SignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string }>;
+  searchParams: Promise<{ error?: string }>;
 }) {
-  const { error, message } = await searchParams;
+  const { error } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-sm rounded-xl border border-neutral-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold text-neutral-900">Loan Tracker</h1>
-        <p className="mt-1 text-sm text-neutral-500">Sign in to manage your loans.</p>
+        <h1 className="text-xl font-semibold text-neutral-900">Create account</h1>
+        <p className="mt-1 text-sm text-neutral-500">Set up access to your Loan Tracker.</p>
 
-        {message ? (
-          <p className="mt-4 rounded-md bg-emerald-50 px-3 py-2 text-sm text-emerald-700">{message}</p>
-        ) : null}
         {error ? (
           <p className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
         ) : null}
 
-        <form action={signIn} className="mt-6 space-y-4">
+        <form action={signUp} className="mt-6 space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-neutral-700">
               Email
@@ -44,7 +41,22 @@ export default async function LoginPage({
               name="password"
               type="password"
               required
-              autoComplete="current-password"
+              minLength={8}
+              autoComplete="new-password"
+              className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700">
+              Confirm password
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              minLength={8}
+              autoComplete="new-password"
               className="mt-1 block w-full rounded-md border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-500 focus:outline-none"
             />
           </div>
@@ -52,14 +64,14 @@ export default async function LoginPage({
             type="submit"
             className="w-full rounded-md bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-700"
           >
-            Sign in
+            Create account
           </button>
         </form>
 
         <p className="mt-4 text-center text-sm text-neutral-500">
-          Don&apos;t have an account?{" "}
-          <Link href="/signup" className="font-medium text-neutral-900 hover:underline">
-            Create one
+          Already have an account?{" "}
+          <Link href="/login" className="font-medium text-neutral-900 hover:underline">
+            Sign in
           </Link>
         </p>
       </div>
